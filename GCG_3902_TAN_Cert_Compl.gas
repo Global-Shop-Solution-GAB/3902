@@ -1,0 +1,313 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Variable.Global.sCustomer.Declare(String)
+Variable.UDT.uBI.Define("TRMNL",String)
+
+Variable.UDT.uBI.Define("ORDER_NO",String)
+Variable.UDT.uBI.Define("CUST_PO",String)
+Variable.UDT.uBI.Define("WO_NO",String)
+Variable.UDT.uBI.Define("QUANTITY",Float,QTY_SHIPPED)
+
+Variable.UDT.uBI.Define("CUSTOMER",String,CUSTOMER)
+Variable.UDT.uBI.Define("SHIP_ID",String,SHIP_ID)
+Variable.UDT.uBI.Define("DESCRIPTION",String,Order_DESC)
+Variable.UDT.uBI.Define("PART",String,PART)
+Variable.UDT.uBI.Define("Address_1",String)
+Variable.UDT.uBI.Define("Address_2",String)
+Variable.UDT.uBI.Define("Address_3",String)
+Variable.UDT.uBI.Define("Address_4",String)
+Variable.UDT.uBI.Define("Address_5",String)
+Variable.UDT.uBI.Define("City",String)
+Variable.UDT.uBI.Define("State",String)
+Variable.UDT.uBI.Define("Zip",String)
+Variable.UDT.uBI.Define("Country",String)
+Variable.UDT.uBI.Define("Name",String)
+Variable.UDT.uBI.Define("Record_No",String)
+
+Variable.uGlobal.uBI.Declare("uBI")
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Screen: ARS002A1
+'Populate Hook: 14350
+'
+'Screen: ARS002A1
+'PreSave Hook: 14384
+'
+'Screen: OES0FSN
+'Populate Hook: 28510
+
+'CUSTOM TABLE
+'gcg_ar_cert_reg: fields: customer and cert_req
+f.ODBC.Connection!conX.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+f.Intrinsic.Control.SelectCase(V.Caller.Hook)
+
+	Function.Intrinsic.Control.Case("14350")
+		'Populate Hook for AR Cust Master. Label read cert of com.
+		 v.Global.sCustomer.Set(V.Passed.000002)
+		Function.Intrinsic.Control.If(V.Global.sCustomer.Trim,=,"")
+			Function.Intrinsic.Control.CallSub(unload)
+		Function.Intrinsic.Control.Else
+			Function.Intrinsic.Control.CallSub(init_fields)
+		Function.Intrinsic.Control.EndIf
+	Function.Intrinsic.Control.Case("14384")
+		v.Global.sCustomer.Set(V.Passed.000002)
+		'SAVE HOOK SAVE THE VALUE TO TABLE
+		Function.Intrinsic.Control.CallSub(save_flag)
+	Function.Intrinsic.Control.Case("28510")
+		v.Global.sCustomer.Set(V.Passed.000204)
+		Function.Intrinsic.Control.CallSub(shipping_cert)
+	Function.Intrinsic.Control.Case("16090")
+		'COMPILE RECORDS FOR THE GCG-BI-CERT-COMPL TABLE FOR PRINTING OR REPORT
+		'just in case we have an error
+		f.ODBC.Connection!conX.Execute("Delete From GCG_3902_CERT_COMPL")
+		f.Intrinsic.Control.CallSub(process_cert_rpt)
+Function.Intrinsic.Control.EndSelect
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_3902_TAN_Cert_Compl.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(Unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.SetErrorHandler("Unload_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+f.ODBC.Connection!conX.Close
+
+f.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_3902_TAN_Cert_Compl.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.End
+Function.Intrinsic.Control.EndIf
+Program.Sub.Unload.End
+
+Program.Sub.INIT_FIELDS.Start
+F.Intrinsic.Control.SetErrorHandler("INIT_FIELDS_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSQL.Declare(String)
+
+'unhide checkbox and lable and populate it.
+F.Intrinsic.UI.ChangeCallerProperty(V.Passed.GAB-CHK-1,"HIDE",0)
+F.Intrinsic.UI.ChangeCallerProperty(V.Passed.GAB-CHK-1,"LOCK",0)
+F.Intrinsic.UI.ChangeCallerProperty(V.Passed.GAB-lbl-1,"HIDE",0)
+
+'GAB Checkbox
+F.Intrinsic.Variable.SetProperty("GAB-CHK-1","PT",24)
+F.Intrinsic.Variable.SetProperty("GAB-CHK-1","PL",365)
+'Lable
+F.Intrinsic.Variable.SetProperty("GAB-lbl-1","PT",24)
+F.Intrinsic.Variable.SetProperty("GAB-lbl-1","Pl",385)
+F.Intrinsic.Variable.SetProperty("GAB-lbl-1","PW",125)
+V.Passed.gab-lbl-1.Set("Certificate of Compliance")
+
+'load it if checked
+F.Intrinsic.String.Build("Select Cert_REQ from GCG_3902_AR_CERT_REQ Where Customer = '{0}'",V.Global.sCustomer,V.Local.sSQL)
+F.ODBC.Connection!conX.OpenLocalRecordsetRO("rst",V.Local.sSQL)
+Function.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+	'is it checked
+	F.Intrinsic.Control.If(V.ODBC.conx!rst.FieldVal!Cert_Req,=,True)
+		V.Passed.gab-chk-1.Set(1)
+	Function.Intrinsic.Control.Else
+		V.Passed.gab-chk-1.Set(0)
+	Function.Intrinsic.Control.EndIf
+Function.Intrinsic.Control.EndIf
+F.ODBC.conx!rst.Close
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("INIT_FIELDS_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_3902_TAN_Cert_Compl.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(Unload)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.INIT_FIELDS.End
+
+Program.Sub.SAVE_FLAG.Start
+F.Intrinsic.Control.SetErrorHandler("SAVE_FLAG_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+v.Local.sSQl.Declare(String)
+
+Function.Intrinsic.Control.If(V.Global.sCustomer.Trim,<>,"")
+	f.Intrinsic.String.Build("Select * From GCG_3902_AR_CERT_REQ WHERE customer = '{0}'",V.Global.sCustomer.Trim,V.Local.sSQl)
+	f.ODBC.Connection!conX.OpenLocalRecordsetRW("rst",V.Local.sSQl)
+	f.Intrinsic.Control.If(V.ODBC.conX!rst.EOF,=,True)
+		f.ODBC.conX!rst.AddNew
+		f.ODBC.conX!rst.Set!Customer(V.Global.sCustomer.Trim)
+	Function.Intrinsic.Control.EndIf
+	f.Intrinsic.Control.If(V.Passed.gab-chk-1,=,"Y")
+		f.ODBC.conX!rst.Set!Cert_Req(1)
+	Function.Intrinsic.Control.Else
+		f.ODBC.conX!rst.Set!Cert_Req(0)
+	Function.Intrinsic.Control.EndIf
+	f.ODBC.conX!rst.Update
+	f.ODBC.conX!rst.Close
+Function.Intrinsic.Control.EndIf
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("SAVE_FLAG_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_3902_TAN_Cert_Compl.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.SAVE_FLAG.End
+
+Program.Sub.Shipping_Cert.Start
+F.Intrinsic.Control.SetErrorHandler("Shipping_Cert_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+v.Local.sSQL.Declare(String)
+'Here a check will be made to the custom table to see if the custom requires a Certificate of compliance to print.
+'If they do then the Cert Enclosed will be check to let the user processing the Shipment know to print the Certificate of Compliance when generated, and add to the shipment.
+f.Intrinsic.String.Build("Select Cert_REQ From GCG_3902_AR_CERT_REQ Where Customer = '{0}'",V.Global.sCustomer.Trim,V.Local.sSQL)
+
+f.ODBC.Connection!conX.OpenLocalRecordsetRO("rst",V.Local.sSQL)
+
+Function.Intrinsic.Control.If(V.ODBC.conX!rst.EOF,=,False)
+	'check status value
+	f.Intrinsic.Control.If(V.ODBC.conX!rst.FieldVal!Cert_REQ,=,True)
+		v.Passed.000190.Set("Y")
+	Function.Intrinsic.Control.EndIf
+Function.Intrinsic.Control.EndIf
+f.ODBC.conX!rst.Close
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Shipping_Cert_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_3902_TAN_Cert_Compl.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Shipping_Cert.End
+
+Program.Sub.PROCESS_CERT_RPT.Start
+F.Intrinsic.Control.SetErrorHandler("PROCESS_CERT_RPT_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+v.Local.sRptID_Packing.Declare(String)
+v.Local.sSQL.Declare(String)
+v.Local.sOrder.Declare(String)
+v.Local.sOrderSuffix.Declare(String)
+v.Local.sCustPO.Declare(String)
+v.Local.sWO.Declare(String)
+v.Local.sLine.Declare(String)
+
+Function.Intrinsic.Control.If(V.Passed.009001,=,"000114")
+	'we ppulate our custom table based on bi packing list table and shipment lines tables?
+	'get our order suffix from table then go into shipment lines
+	v.Local.sRptID_Packing.Set(v.Passed.bip_reportid)
+	f.Intrinsic.String.Build("Select Order_No,Order_Suffix,Customer_PO,Record_NO,CUSTOMER_NAME_SHIP,Address1_ship,address2_ship,address3_ship,address4_ship,address5_ship,city_ship,state_ship,zip_Ship,Country_Ship From V_BI_Packing_List Where Terminal = '{0}' And RptID = '{1}' And Line_Type = 'L'",v.Caller.Terminal,v.Local.sRptID_Packing,v.Local.sSQL)
+	f.ODBC.Connection!conX.OpenLocalRecordsetRO("rst",V.Local.sSQL)
+	f.Intrinsic.Control.If(V.ODBC.conX!rst.EOF,=,False)
+		v.Local.sOrder.Set(v.ODBC.conX!rst.FieldValTrim!Order_NO)
+		v.Local.sOrderSuffix.Set(v.ODBC.conX!rst.FieldValTrim!Order_Suffix)
+		v.Local.sCustPO.Set(v.ODBC.conX!rst.FieldValTrim!Customer_PO)
+		v.Local.sLine.Set(v.ODBC.conX!rst.FieldValTrim!Record_NO)
+		f.Intrinsic.String.Build("Select Customer,Ship_ID,Qty_Shipped,Part,Order_Desc From V_Shipment_Lines Where Order_NO = '{0}' And Order_Suffix = '{1}' And Record_Type = 'L' And Line_Type = 'S'",v.Local.sOrder,v.Local.sOrderSuffix,v.Local.sSQL)
+		f.ODBC.Connection!conX.OpenLocalRecordsetRO("rstShip",V.Local.sSQL)
+		f.Intrinsic.Control.If(V.ODBC.conX!rst.EOF,=,False)
+			'load Udt from recordset
+			f.Intrinsic.Variable.LoadUDTFromRecordset("conx","rstShip","v.uglobal.uBI",False)
+		Function.Intrinsic.Control.EndIf
+		f.ODBC.conX!rstship.Close
+		'grab wo from order-to-wo table
+		f.Intrinsic.String.Build("Select Job,Suffix From V_ORDER_TO_WO Where Order_NO = '{0}' And Order_Line ='{1}'",v.Local.sOrder,v.Local.sLine,v.Local.sSQL)
+		f.ODBC.Connection!conX.OpenLocalRecordsetRO("rstWO",V.Local.sSQL)
+		Function.Intrinsic.Control.If(V.ODBC.conX!rstWO.EOF,=,False)
+			f.Intrinsic.Control.If(V.ODBC.conX!rstWO.FieldValTrim!suffix,<>,"")
+				f.Intrinsic.String.Build("{0}-{1}",v.ODBC.conX!rstWO.FieldValTrim!Job,v.ODBC.conX!rstWO.FieldValTrim!Suffix,v.Local.sWO)
+			Function.Intrinsic.Control.Else
+				v.Local.sWO.Set(v.ODBC.conx!rstWO.FieldValTrim!Job)
+			Function.Intrinsic.Control.EndIf
+		Function.Intrinsic.Control.EndIf
+		f.ODBC.conX!rstWO.Close
+		'MULTI SET OUR WORK ORDER VALUE AND TERMINAL AND
+		F.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.UBI!TRMNL,V.Caller.Terminal)
+		f.Intrinsic.Variable.UDTSetMemberValue(v.uGlobal.uBI!WO_NO,v.Local.sWO)
+		f.Intrinsic.Variable.UDTSetMemberValue(v.uGlobal.uBI!CUST_PO,v.Local.sCustPO)
+		f.Intrinsic.Variable.UDTSetMemberValue(v.uGlobal.uBI!ORDER_NO,v.Local.sOrder)
+		F.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!Address_1,V.ODBC.conX!rst.FieldValTrim!Address1_ship)
+		F.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!Address_2,V.ODBC.conX!rst.FieldValTrim!Address2_ship)
+		F.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!Address_3,V.ODBC.conX!rst.FieldValTrim!Address3_ship)
+		F.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!Address_4,V.ODBC.conX!rst.FieldValTrim!Address4_ship)
+		F.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!Address_5,V.ODBC.conX!rst.FieldValTrim!Address5_ship)
+		f.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!City,V.ODBC.conX!rst.FieldValTrim!City_Ship)
+		f.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!State,V.ODBC.conx!rst.FieldValTrim!State_Ship)
+		f.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!Zip,V.ODBC.conx!rst.FieldValTrim!Zip_Ship)
+		f.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!Country,V.ODBC.conx!rst.FieldValTrim!Country_Ship)
+		F.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!Name,V.ODBC.conX!rst.FieldValTrim!Customer_Name_Ship)
+		f.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.uBI!Record_No,V.ODBC.conX!rst.FieldValTrim!record_NO)
+		F.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!TRMNL,"TRMNL")
+		F.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!Name,"Customer_Name")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!WO_NO,"WO_NO")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!ORDER_NO,"ORDER_NO")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!DESCRIPTION,"Description")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!CUST_PO,"Cust_PO")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!Address_1,"Address_1")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!Address_2,"Address_2")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!Address_3,"Address_3")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!Address_4,"Address_4")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!Address_5,"Address_5")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!City,"City_Ship")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!State,"State_Ship")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!Zip,"Zip_Ship")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!Country,"Country_Ship")
+		f.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.uBI!Record_No,"Order_Line")
+
+		
+		f.ODBC.Connection!conX.OpenLocalRecordsetRW("rstSave","Select * From GCG_3902_CERT_COMPL")
+		f.Intrinsic.Variable.SaveUDTToRecordset("conx","rstSave","v.uGlobal.uBI")
+		f.ODBC.conX!rstSave.Close
+
+	Function.Intrinsic.Control.EndIf
+	f.ODBC.conX!rst.Close
+Function.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("PROCESS_CERT_RPT_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_3902_TAN_Cert_Compl.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.PROCESS_CERT_RPT.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$TRT$}$7/26/2015 7:51:27 AM
+${$3$}$0$}$$}$0$}$-1$}$$}$12:00:00 AM$}$Quote 6493-1
+This will be a custom GAB Script that will place a Flag that users can check that will signify that the customer requires a Certificate of Compliance. When a Sales order is created or Viewed for that customer there will be a flag checked for Certificate of Compliance required on each line of the Sales Order.
+Note:
+This will require that the report ID 114 is active. And the Hook 16090 to only allow printing based on customer.
+
+Program.Sub.Comments.End
+
